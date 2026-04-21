@@ -1,0 +1,35 @@
+version: "3.8"
+
+name: clamav
+
+volumes:
+  clamav_db:
+    driver: local
+  clamav_logs:
+    driver: local
+
+services:
+
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: clamav
+    restart: unless-stopped
+    ports:
+      - "${CLAMAV_PORT:-3310}:3310"
+    volumes:
+      - clamav_db:/var/lib/clamav
+      - clamav_logs:/var/log/clamav
+    environment:
+      - FRESHCLAM_CHECKS_PER_DAY=${FRESHCLAM_CHECKS_PER_DAY:-24}
+      - CLAMD_CONF_MaxFileSize=${CLAMD_MAX_FILE_SIZE:-26214400}
+      - CLAMD_CONF_MaxScanSize=${CLAMD_MAX_SCAN_SIZE:-104857600}
+      - CLAMD_CONF_StreamMaxLength=${CLAMD_STREAM_MAX_LENGTH:-26214400}
+      - CLAMD_CONF_MaxThreads=${CLAMD_MAX_THREADS:-4}
+      - CLAMD_CONF_TCPSocket=3310
+      - CLAMD_CONF_TCPAddr=0.0.0.0
+    healthcheck:
+      test: ["CMD", "/usr/bin/clamdscan", "--ping"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 120s

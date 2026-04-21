@@ -1,0 +1,82 @@
+version: "3.8"
+
+name: redpanda
+
+networks:
+  redpanda_net:
+    driver: bridge
+
+volumes:
+  redpanda_data:
+    driver: local
+
+services:
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.10
+    container_name: redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://${REDPANDA_EXTERNAL_HOST}:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://${REDPANDA_EXTERNAL_HOST}:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp ${REDPANDA_SMP:-1}
+      - --memory ${REDPANDA_MEMORY:-1G}
+      - --default-log-level=${REDPANDA_LOG_LEVEL:-warn}
+    ports:
+      - "${REDPANDA_KAFKA_PORT:-9092}:9092"
+      - "${REDPANDA_KAFKA_EXTERNAL_PORT:-19092}:19092"
+      - "${REDPANDA_HTTP_PROXY_PORT:-8082}:8082"
+      - "${REDPANDA_HTTP_PROXY_EXTERNAL_PORT:-18082}:18082"
+      - "${REDPANDA_SCHEMA_REGISTRY_PORT:-8081}:8081"
+      - "${REDPANDA_SCHEMA_REGISTRY_EXTERNAL_PORT:-18081}:18081"
+      - "${REDPANDA_ADMIN_PORT:-9644}:9644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - redpanda_net
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redpanda-console:
+    image: redpandadata/console:v2.7.0
+    container_name: redpanda-console
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        cat > /tmp/config.yaml <<EOF
+        kafka:
+          brokers: ["redpanda:9092"]
+          schemaRegistry:
+            enabled: true
+            urls: ["http://redpanda:8081"]
+        redpanda:
+          adminApi:
+            enabled: true
+            urls: ["http://redpanda:9644"]
+        connect:
+          enabled: false
+        EOF
+        /app/console --config.filepath /tmp/config.yaml
+    ports:
+      - "${CONSOLE_PORT:-8080}:8080"
+    networks:
+      - redpanda_net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      - CONFIG_FILEPATH=/tmp/config.yaml
