@@ -49,6 +49,24 @@ services:
       retries: 5
       start_period: 30s
 
+  redpanda-init:
+    image: redpandadata/redpanda:v24.2.10
+    container_name: redpanda-init
+    restart: "no"
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        rpk topic create job.eligibility job.ready job.eligible.students job.notification.send \
+          --brokers redpanda:9092 \
+          --partitions ${TOPIC_PARTITIONS:-3} \
+          --replicas ${TOPIC_REPLICAS:-1}
+    networks:
+      - redpanda_net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
   redpanda-console:
     image: redpandadata/console:v2.7.0
     container_name: redpanda-console
