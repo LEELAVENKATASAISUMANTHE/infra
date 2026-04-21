@@ -5,6 +5,8 @@ name: redpanda
 networks:
   redpanda_net:
     driver: bridge
+  placement-network:
+    external: true
 
 volumes:
   redpanda_data:
@@ -42,6 +44,7 @@ services:
       - redpanda_data:/var/lib/redpanda/data
     networks:
       - redpanda_net
+      - placement-network
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
       interval: 15s

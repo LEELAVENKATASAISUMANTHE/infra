@@ -2,6 +2,10 @@ version: "3.8"
 
 name: clamav
 
+networks:
+  placement-network:
+    external: true
+
 volumes:
   clamav_db:
     driver: local
@@ -27,6 +31,8 @@ services:
       - CLAMD_CONF_MaxThreads=${CLAMD_MAX_THREADS:-4}
       - CLAMD_CONF_TCPSocket=3310
       - CLAMD_CONF_TCPAddr=0.0.0.0
+    networks:
+      - placement-network
     healthcheck:
       test: ["CMD", "/usr/bin/clamdscan", "--ping"]
       interval: 60s
