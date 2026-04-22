@@ -7,6 +7,8 @@ networks:
     driver: bridge
   placement-network:
     external: true
+  dokploy-network:          # 👈 added
+    external: true
 
 volumes:
   redpanda_data:
@@ -45,6 +47,7 @@ services:
     networks:
       - redpanda_net
       - placement-network
+      - dokploy-network     # 👈 added
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
       interval: 15s
@@ -60,7 +63,12 @@ services:
     command:
       - -c
       - |
-        rpk topic create job.eligibility job.ready job.eligible.students job.notification.send \
+        rpk topic create \
+          job.eligibility \
+          job.ready \
+          job.eligible.students \
+          job.notification.send \
+          job.notification.pending \
           --brokers redpanda:9092 \
           --partitions ${TOPIC_PARTITIONS:-3} \
           --replicas ${TOPIC_REPLICAS:-1}
