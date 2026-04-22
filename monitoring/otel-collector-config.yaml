@@ -1,0 +1,31 @@
+file_format: "1.0"
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+exporters:
+  clickhouselogsexporter:
+    dsn: tcp://clickhouse:9000/signoz_logs?username=${CLICKHOUSE_USER:-default}&password=${CLICKHOUSE_PASSWORD:-clickhouse}
+    timeout: 10s
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouselogsexporter]

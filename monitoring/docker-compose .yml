@@ -1,0 +1,90 @@
+version: "3.8"
+
+name: monitoring
+
+networks:
+  monitoring_net:
+    driver: bridge
+  placement-network:
+    external: true
+  dokploy-network:
+    external: true
+
+volumes:
+  clickhouse_data:
+    driver: local
+  signoz_data:
+    driver: local
+
+services:
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1.2-alpine
+    container_name: clickhouse
+    restart: unless-stopped
+    environment:
+      - CLICKHOUSE_DB=signoz_logs
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-clickhouse}
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - monitoring_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  signoz:
+    image: signoz/signoz:v0.56.0
+    container_name: signoz
+    restart: unless-stopped
+    ports:
+      - "${SIGNOZ_PORT:-3301}:3301"
+    environment:
+      - SIGNOZ_SQLITEDATASOURCE=/var/lib/signoz/signoz.db
+      - STORAGE=clickhouse
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=9000
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-clickhouse}
+      - CLICKHOUSE_DATABASE=signoz_logs
+      - DOTMETRICS_ENABLED=false
+    volumes:
+      - signoz_data:/var/lib/signoz
+    networks:
+      - monitoring_net
+      - dokploy-network
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3301/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  otel-collector:
+    image: signoz/signoz-otel-collector:0.111.5
+    container_name: otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "${OTEL_GRPC_PORT:-4317}:4317"   # OTLP gRPC
+      - "${OTEL_HTTP_PORT:-4318}:4318"   # OTLP HTTP
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    networks:
+      - monitoring_net
+      - placement-network
+      - dokploy-network
+    depends_on:
+      signoz:
+        condition: service_healthy
