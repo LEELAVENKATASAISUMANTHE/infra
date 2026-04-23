@@ -7,70 +7,70 @@ networks:
     external: true
 
 volumes:
-  signoz-clickhouse:
+  loki-data:
     driver: local
-  signoz-data:
+  prometheus-data:
+    driver: local
+  grafana-data:
     driver: local
 
 services:
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.1
-    container_name: clickhouse
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: loki
     restart: unless-stopped
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
+    ports:
+      - "3100:3100"
     volumes:
-      - signoz-clickhouse:/var/lib/clickhouse
-    networks:
-      - placement-network
-      - dokploy-network
-    environment:
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme}
-      CLICKHOUSE_DB: signoz_logs
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
-    container_name: otel-collector
-    restart: unless-stopped
-    environment:
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-changeme}
-    ports:
-      - "${OTEL_GRPC_PORT:-4317}:4317"
-      - "${OTEL_HTTP_PORT:-4318}:4318"
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel/config.yaml
-    command: ["--config", "/etc/otel/config.yaml"]
-    depends_on:
-      clickhouse:
-        condition: service_healthy
     networks:
       - placement-network
       - dokploy-network
 
-  signoz:
-    image: signoz/signoz-standalone:latest
-    container_name: signoz
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: prometheus
     restart: unless-stopped
-    privileged: true
     ports:
-      - "${SIGNOZ_PORT:-3301}:8080"
+      - "9090:9090"
     volumes:
-      - signoz-data:/var/lib/signoz
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - placement-network
+      - dokploy-network
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3301}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     environment:
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=9000
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-changeme}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-changeme}
+      GF_USERS_ALLOW_SIGN_UP: "false"
     depends_on:
-      clickhouse:
+      loki:
+        condition: service_healthy
+      prometheus:
         condition: service_healthy
     networks:
       - placement-network

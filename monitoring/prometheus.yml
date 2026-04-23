@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: placement-main-backend
+    static_configs:
+      - targets: ["placement-main-backend:3225"]
+
+  - job_name: placement-background
+    static_configs:
+      - targets: ["placement-background:5789"]
+
+  - job_name: placement-subsystem
+    static_configs:
+      - targets: ["placement-subsystem:4000"]
