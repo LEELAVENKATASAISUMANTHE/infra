@@ -1,5 +1,3 @@
-file_format: "1.0"
-
 receivers:
   otlp:
     protocols:
@@ -19,8 +17,12 @@ processors:
     spike_limit_mib: 64
 
 exporters:
-  clickhouselogsexporter:
-    dsn: tcp://clickhouse:9000/signoz_logs?username=default&password=${CLICKHOUSE_PASSWORD}
+  clickhouse:
+    endpoint: tcp://clickhouse:9000
+    database: signoz_logs
+    username: default
+    password: ${CLICKHOUSE_PASSWORD}
+    logs_table_name: logs
     timeout: 10s
 
 service:
@@ -28,4 +30,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [clickhouselogsexporter]
+      exporters: [clickhouse]
