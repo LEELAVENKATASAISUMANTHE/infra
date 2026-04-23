@@ -20,7 +20,7 @@ processors:
 
 exporters:
   clickhouselogsexporter:
-    dsn: tcp://clickhouse:9000/signoz_logs?username=${CLICKHOUSE_USER:-default}&password=${CLICKHOUSE_PASSWORD:-clickhouse}
+    dsn: tcp://clickhouse:9000/signoz_logs?username=default&password=${CLICKHOUSE_PASSWORD:-changeme}
     timeout: 10s
 
 service:

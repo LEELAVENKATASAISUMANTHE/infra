@@ -13,18 +13,63 @@ volumes:
     driver: local
 
 services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1
+    container_name: clickhouse
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - signoz-clickhouse:/var/lib/clickhouse
+    networks:
+      - placement-network
+      - dokploy-network
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme}
+      CLICKHOUSE_DB: signoz_logs
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    restart: unless-stopped
+    ports:
+      - "${OTEL_GRPC_PORT:-4317}:4317"
+      - "${OTEL_HTTP_PORT:-4318}:4318"
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel/config.yaml
+    command: ["--config", "/etc/otel/config.yaml"]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - placement-network
+      - dokploy-network
+
   signoz:
     image: signoz/signoz-standalone:latest
     container_name: signoz
     restart: unless-stopped
     privileged: true
     ports:
-      - "${SIGNOZ_PORT:-8080}:8080"
-      - "${OTEL_GRPC_PORT:-4317}:4317"
-      - "${OTEL_HTTP_PORT:-4318}:4318"
+      - "${SIGNOZ_PORT:-3301}:8080"
     volumes:
-      - signoz-clickhouse:/var/lib/clickhouse
       - signoz-data:/var/lib/signoz
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=9000
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-changeme}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
     networks:
       - placement-network
       - dokploy-network
