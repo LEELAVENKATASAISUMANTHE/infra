@@ -5,6 +5,8 @@ networks:
     external: true
   dokploy-network:
     external: true
+  placement-overlay:
+    external: true
 
 volumes:
   loki-data:
@@ -34,6 +36,7 @@ services:
     networks:
       - placement-network
       - dokploy-network
+      - placement-overlay
 
   prometheus:
     image: prom/prometheus:v2.51.2
@@ -56,7 +59,7 @@ services:
     networks:
       - placement-network
       - dokploy-network
-
+      - placement-overlay
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
