@@ -18,7 +18,7 @@ volumes:
 
 services:
   loki:
-    image: grafana/loki:2.9.4
+    image: grafana/loki:3.0.0
     container_name: loki
     restart: unless-stopped
     user: "0"
