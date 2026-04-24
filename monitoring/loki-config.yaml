@@ -2,19 +2,19 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
+  grpc_listen_port: 9096
 
-ingester:
-  lifecycler:
-    address: 127.0.0.1
-    ring:
-      kvstore:
-        store: inmemory
-      replication_factor: 1
-    final_sleep: 0s
-  chunk_idle_period: 1h
-  max_chunk_age: 1h
-  chunk_target_size: 1048576
-  chunk_retain_period: 30s
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
 
 schema_config:
   configs:
@@ -34,11 +34,15 @@ storage_config:
   filesystem:
     directory: /loki/chunks
 
+ingester:
+  wal:
+    dir: /loki/wal       # ← explicit WAL path inside mounted volume
+
 limits_config:
+  allow_structured_metadata: false
   reject_old_samples: true
   reject_old_samples_max_age: 168h
-  allow_structured_metadata: false   # ← this is key for 2.9.x
 
 compactor:
-  working_directory: /loki/boltdb-shipper-compactor
+  working_directory: /loki/compactor
   shared_store: filesystem
