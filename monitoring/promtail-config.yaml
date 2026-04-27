@@ -1,5 +1,6 @@
-http_listen_port: 9080
-grpc_listen_port: 0
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
 
 positions:
   filename: /tmp/positions.yaml
@@ -40,7 +41,7 @@ scrape_configs:
         refresh_interval: 5s
         filters:
           - name: name
-            values: ["placement-subsystem"]
+            values: ["placement-subsytem"]
     relabel_configs:
       - target_label: job
         replacement: placement-subsystem
