@@ -1,5 +1,4 @@
-server:
-  http_listen_port: 9080
+http_listen_port: 9080
   grpc_listen_port: 0
 
 positions:
@@ -9,19 +8,41 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: containers
+  - job_name: placement-main-backend
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["placement-main-backend"]
     relabel_configs:
-      - source_labels: [__meta_docker_container_name]
-        regex: "/(placement-main-backend|placement-background|placement-subsytem|placement-frontend-subsystem|placement-main-frontend).*"
-        action: keep
-      - source_labels: [__meta_docker_container_name]
-        regex: "/([^.]+).*"
-        target_label: container
-        replacement: "$1"
-      - source_labels: [__meta_docker_container_log_stream]
-        target_label: stream
       - target_label: job
-        replacement: docker
+        replacement: placement-main-backend
+      - target_label: container
+        replacement: placement-main-backend
+
+  - job_name: placement-background
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["placement-background"]
+    relabel_configs:
+      - target_label: job
+        replacement: placement-background
+      - target_label: container
+        replacement: placement-background
+
+  - job_name: placement-subsystem
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["placement-subsytem"]
+    relabel_configs:
+      - target_label: job
+        replacement: placement-subsystem
+      - target_label: container
+        replacement: placement-subsystem
