@@ -15,9 +15,13 @@ scrape_configs:
         refresh_interval: 5s
     relabel_configs:
       - source_labels: [__meta_docker_container_name]
+        regex: "/(placement-main-backend|placement-background|placement-subsytem|placement-frontend-subsystem|placement-main-frontend).*"
+        action: keep
+      - source_labels: [__meta_docker_container_name]
+        regex: "/([^.]+).*"
         target_label: container
+        replacement: "$1"
       - source_labels: [__meta_docker_container_log_stream]
         target_label: stream
-      - source_labels: [__meta_docker_container_name]
-        regex: "/(placement-main-backend|placement-background|placement-subsystem)"
-        action: keep
+      - target_label: job
+        replacement: docker
